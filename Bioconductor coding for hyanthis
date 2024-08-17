@@ -1,0 +1,84 @@
+
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+# Install necessary Bioconductor packages
+BiocManager::install(c("clusterProfiler", "org.Hs.eg.db", "ReactomePA", "DOSE"))
+
+# Load the libraries
+library(clusterProfiler)
+library(org.Hs.eg.db)  # Human gene annotation database; replace if needed
+library(ReactomePA)
+library(DOSE)  # For enrichment analysis
+
+
+# Example gene list from *Hyacinthus*
+gene_list <- c("GeneA", "GeneB", "GeneC", "GeneD")  # Replace with your actual gene symbols
+
+
+# Convert gene symbols to Entrez IDs
+entrez_ids <- tryCatch({
+    bitr(gene_list, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+}, error = function(e) {
+    message("Error in gene symbol to Entrez ID conversion: ", e$message)
+    NULL
+})
+
+# Check conversion success
+if (is.null(entrez_ids) || nrow(entrez_ids) == 0) {
+    stop("Failed to convert gene symbols to Entrez IDs. Please check your gene list and annotation database.")
+}
+
+gene_entrez <- entrez_ids$ENTREZID
+
+# Perform Reactome pathway enrichment analysis
+enrich_result_reactome <- tryCatch({
+    enrichPathway(gene = gene_entrez, organism = "human", pAdjustMethod = "BH")
+}, error = function(e) {
+    message("Error in Reactome enrichment analysis: ", e$message)
+    NULL
+})
+
+# Perform KEGG pathway enrichment analysis
+enrich_result_kegg <- tryCatch({
+    enrichKEGG(gene = gene_entrez, organism = "hsa", pAdjustMethod = "BH")
+}, error = function(e) {
+    message("Error in KEGG enrichment analysis: ", e$message)
+    NULL
+})
+
+# Perform Gene Ontology (GO) enrichment analysis
+enrich_result_go <- tryCatch({
+    enrichGO(gene = gene_entrez, OrgDb = org.Hs.eg.db, ont = "BP", pAdjustMethod = "BH")
+}, error = function(e) {
+    message("Error in GO enrichment analysis: ", e$message)
+    NULL
+})
+
+# Function to plot enrichment results safely
+plot_enrichment_results <- function(result, title) {
+    if (!is.null(result) && nrow(result) > 0) {
+        print(dotplot(result, showCategory = 10) + ggtitle(title))
+        print(barplot(result, showCategory = 10) + ggtitle(title))
+        print(emapplot(result) + ggtitle(title))
+    } else {
+        message("No results available for ", title)
+    }
+}
+
+# Plot Reactome enrichment results
+plot_enrichment_results(enrich_result_reactome, "Reactome Pathway Enrichment")
+
+# Plot KEGG enrichment results
+plot_enrichment_results(enrich_result_kegg, "KEGG Pathway Enrichment")
+
+# Plot GO enrichment results
+plot_enrichment_results(enrich_result_go, "Gene Ontology Enrichment")
+
+
+Summary of Enhanced Workflow
+Prepare Gene List: Collect and format your list of differentially expressed genes from Hyacinthus.
+Convert Identifiers: Map gene symbols to Entrez IDs. Handle errors if conversion fails.
+Perform Enrichment Analysis: Use multiple enrichment functions (enrichPathway, enrichKEGG, enrichGO) to identify significant pathways and processes.
+Visualize Results: Use dotplot, barplot, and emapplot to visualize the results. Ensure to check if results are available before plotting.
